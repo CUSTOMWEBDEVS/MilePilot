@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#11110f">
+  <meta name="description" content="Track mileage, fuel economy, oil changes, and vehicle maintenance.">
+  <title>MilePilot</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div class="noise"></div>
+
+  <header class="topbar">
+    <a class="brand" href="#dashboard" aria-label="MilePilot home">
+      <span class="brand-mark">MP</span>
+      <span class="brand-copy">
+        <strong>MilePilot</strong>
+        <small>Vehicle Intelligence</small>
+      </span>
+    </a>
+
+    <div class="topbar-actions">
+      <button class="icon-button" id="syncButton" title="Sync queued changes" aria-label="Sync queued changes">
+        <span data-icon="sync"></span>
+      </button>
+      <button class="icon-button" id="themeButton" title="Toggle theme" aria-label="Toggle theme">
+        <span data-icon="moon"></span>
+      </button>
+      <button class="primary-button compact" data-open-modal="vehicleModal">
+        <span data-icon="plus"></span>
+        Add vehicle
+      </button>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <nav class="nav-list" aria-label="Main navigation">
+        <a class="nav-link active" href="#dashboard" data-view="dashboard">
+          <span data-icon="dashboard"></span>
+          <span>Dashboard</span>
+        </a>
+        <a class="nav-link" href="#vehicles" data-view="vehicles">
+          <span data-icon="car"></span>
+          <span>Vehicles</span>
+        </a>
+        <a class="nav-link" href="#fuel" data-view="fuel">
+          <span data-icon="fuel"></span>
+          <span>Fuel logs</span>
+        </a>
+        <a class="nav-link" href="#maintenance" data-view="maintenance">
+          <span data-icon="wrench"></span>
+          <span>Maintenance</span>
+        </a>
+        <a class="nav-link" href="#nearby" data-view="nearby">
+          <span data-icon="map"></span>
+          <span>Nearby service</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-status">
+        <span class="status-dot" id="connectionDot"></span>
+        <div>
+          <strong id="connectionLabel">Checking connection</strong>
+          <small id="queueLabel">No queued changes</small>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="view active" id="dashboardView">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <span class="eyebrow">Your garage, under control</span>
+            <h1>Know what your vehicles need before they need it.</h1>
+            <p>Track mileage, fuel economy, oil changes, costs, and maintenance history from one clean dashboard.</p>
+            <div class="hero-actions">
+              <button class="primary-button" data-open-modal="mileageModal">
+                <span data-icon="odometer"></span>
+                Log mileage
+              </button>
+              <button class="secondary-button" data-open-modal="fuelModal">
+                <span data-icon="fuel"></span>
+                Add fuel stop
+              </button>
+            </div>
+          </div>
+
+          <div class="hero-metric">
+            <span class="metric-label">Garage health</span>
+            <strong id="garageHealth">--</strong>
+            <div class="metric-bar">
+              <span id="garageHealthBar"></span>
+            </div>
+            <small id="garageHealthText">Add your first vehicle to begin.</small>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <span class="stat-icon" data-icon="car"></span>
+            <div>
+              <span>Active vehicles</span>
+              <strong id="statVehicles">0</strong>
+            </div>
+          </article>
+          <article class="stat-card">
+            <span class="stat-icon" data-icon="road"></span>
+            <div>
+              <span>Total miles logged</span>
+              <strong id="statMiles">0</strong>
+            </div>
+          </article>
+          <article class="stat-card">
+            <span class="stat-icon" data-icon="gauge"></span>
+            <div>
+              <span>Average MPG</span>
+              <strong id="statMpg">--</strong>
+            </div>
+          </article>
+          <article class="stat-card">
+            <span class="stat-icon" data-icon="dollar"></span>
+            <div>
+              <span>Maintenance spend</span>
+              <strong id="statSpend">$0</strong>
+            </div>
+          </article>
+        </div>
+
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Garage overview</span>
+            <h2>Vehicle status</h2>
+          </div>
+          <button class="text-button" data-view-link="vehicles">View all vehicles</button>
+        </div>
+        <div id="dashboardVehicles" class="vehicle-grid"></div>
+
+        <div class="two-column">
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">Attention</span>
+                <h3>Upcoming service</h3>
+              </div>
+              <span class="panel-count" id="serviceCount">0</span>
+            </div>
+            <div id="serviceAlerts" class="activity-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">Latest activity</span>
+                <h3>Recent updates</h3>
+              </div>
+            </div>
+            <div id="recentActivity" class="activity-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="vehiclesView">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Garage</span>
+            <h1>Your vehicles</h1>
+            <p>Manage vehicle details, oil intervals, mileage, and archived vehicles.</p>
+          </div>
+          <button class="primary-button" data-open-modal="vehicleModal">
+            <span data-icon="plus"></span>
+            Add vehicle
+          </button>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" id="vehicleSearch" type="search" placeholder="Search vehicles">
+          <label class="toggle-row">
+            <input id="showArchived" type="checkbox">
+            <span>Show archived</span>
+          </label>
+        </div>
+        <div id="vehicleList" class="vehicle-grid"></div>
+      </section>
+
+      <section class="view" id="fuelView">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Fuel economy</span>
+            <h1>Fuel logs</h1>
+            <p>Track gallons, price, total cost, mileage, and calculated MPG.</p>
+          </div>
+          <button class="primary-button" data-open-modal="fuelModal">
+            <span data-icon="plus"></span>
+            Add fuel stop
+          </button>
+        </div>
+        <div class="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Vehicle</th>
+                <th>Mileage</th>
+                <th>Gallons</th>
+                <th>Price/gal</th>
+                <th>Total</th>
+                <th>MPG</th>
+              </tr>
+            </thead>
+            <tbody id="fuelTableBody"></tbody>
+          </table>
+          <div class="empty-table" id="fuelEmpty">No fuel stops logged yet.</div>
+        </div>
+      </section>
+
+      <section class="view" id="maintenanceView">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Service records</span>
+            <h1>Maintenance history</h1>
+            <p>Keep a permanent record of repairs, inspections, oil changes, and costs.</p>
+          </div>
+          <button class="primary-button" data-open-modal="maintenanceModal">
+            <span data-icon="plus"></span>
+            Add service
+          </button>
+        </div>
+        <div class="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Vehicle</th>
+                <th>Service</th>
+                <th>Mileage</th>
+                <th>Cost</th>
+                <th>Shop</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="maintenanceTableBody"></tbody>
+          </table>
+          <div class="empty-table" id="maintenanceEmpty">No maintenance records yet.</div>
+        </div>
+      </section>
+
+      <section class="view" id="nearbyView">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Local service</span>
+            <h1>Nearby shops</h1>
+            <p>Find highly rated service shops within 25 miles and rank them by rating and distance.</p>
+          </div>
+        </div>
+
+        <section class="location-panel">
+          <div>
+            <h3>Search from your location</h3>
+            <p>Use your current GPS position or enter a ZIP code.</p>
+          </div>
+          <div class="location-controls">
+            <input id="zipInput" class="search-input" inputmode="numeric" maxlength="5" placeholder="ZIP code">
+            <button class="secondary-button" id="zipSearchButton">
+              <span data-icon="search"></span>
+              Search ZIP
+            </button>
+            <button class="primary-button" id="gpsSearchButton">
+              <span data-icon="location"></span>
+              Use GPS
+            </button>
+          </div>
+        </section>
+        <div id="shopResults" class="shop-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="mobile-nav">
+    <a class="active" href="#dashboard" data-view="dashboard"><span data-icon="dashboard"></span><small>Home</small></a>
+    <a href="#vehicles" data-view="vehicles"><span data-icon="car"></span><small>Vehicles</small></a>
+    <button data-open-modal="quickAddModal"><span data-icon="plus"></span><small>Add</small></button>
+    <a href="#fuel" data-view="fuel"><span data-icon="fuel"></span><small>Fuel</small></a>
+    <a href="#maintenance" data-view="maintenance"><span data-icon="wrench"></span><small>Service</small></a>
+  </nav>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+  <dialog class="modal" id="vehicleModal">
+    <form method="dialog" class="modal-card" id="vehicleForm">
+      <div class="modal-heading">
+        <div>
+          <span class="eyebrow">Garage</span>
+          <h2 id="vehicleModalTitle">Add vehicle</h2>
+        </div>
+        <button class="icon-button" value="cancel" type="button" data-close-modal><span data-icon="close"></span></button>
+      </div>
+      <input type="hidden" name="id">
+      <div class="form-grid">
+        <label>
+          <span>Year</span>
+          <input name="year" type="number" min="1900" max="2100" required>
+        </label>
+        <label>
+          <span>Make</span>
+          <input name="make" required placeholder="Ford">
+        </label>
+        <label>
+          <span>Model</span>
+          <input name="model" required placeholder="F-150">
+        </label>
+        <label>
+          <span>Trim</span>
+          <input name="trim" placeholder="Lariat">
+        </label>
+        <label>
+          <span>Current mileage</span>
+          <input name="currentMileage" type="number" min="0" step="1" required>
+        </label>
+        <label>
+          <span>Oil interval</span>
+          <input name="oilInterval" type="number" min="1000" step="100" value="5000" required>
+        </label>
+        <label>
+          <span>Warning threshold</span>
+          <input name="warningThreshold" type="number" min="0" step="50" value="500" required>
+        </label>
+        <label>
+          <span>Color</span>
+          <input name="color" placeholder="Black">
+        </label>
+      </div>
+      <label>
+        <span>Nickname</span>
+        <input name="nickname" placeholder="Daily driver">
+      </label>
+      <div class="modal-actions">
+        <button class="secondary-button" type="button" data-close-modal>Cancel</button>
+        <button class="primary-button" type="submit">Save vehicle</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="mileageModal">
+    <form method="dialog" class="modal-card" id="mileageForm">
+      <div class="modal-heading">
+        <div><span class="eyebrow">Mileage</span><h2>Log mileage</h2></div>
+        <button class="icon-button" type="button" data-close-modal><span data-icon="close"></span></button>
+      </div>
+      <label><span>Vehicle</span><select name="vehicleId" required></select></label>
+      <label><span>Current mileage</span><input name="mileage" type="number" min="0" required></label>
+      <label><span>Date</span><input name="date" type="date" required></label>
+      <label><span>Note</span><textarea name="note" rows="3" placeholder="Optional note"></textarea></label>
+      <div class="modal-actions">
+        <button class="secondary-button" type="button" data-close-modal>Cancel</button>
+        <button class="primary-button" type="submit">Save mileage</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="fuelModal">
+    <form method="dialog" class="modal-card" id="fuelForm">
+      <div class="modal-heading">
+        <div><span class="eyebrow">Fuel</span><h2>Add fuel stop</h2></div>
+        <button class="icon-button" type="button" data-close-modal><span data-icon="close"></span></button>
+      </div>
+      <label><span>Vehicle</span><select name="vehicleId" required></select></label>
+      <div class="form-grid">
+        <label><span>Date</span><input name="date" type="date" required></label>
+        <label><span>Mileage</span><input name="mileage" type="number" min="0" required></label>
+        <label><span>Gallons</span><input name="gallons" type="number" min="0.001" step="0.001" required></label>
+        <label><span>Price per gallon</span><input name="pricePerGallon" type="number" min="0" step="0.001" required></label>
+      </div>
+      <label class="toggle-row"><input name="fullTank" type="checkbox" checked><span>Filled the tank completely</span></label>
+      <label><span>Station</span><input name="station" placeholder="Optional"></label>
+      <div class="modal-actions">
+        <button class="secondary-button" type="button" data-close-modal>Cancel</button>
+        <button class="primary-button" type="submit">Save fuel stop</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="maintenanceModal">
+    <form method="dialog" class="modal-card" id="maintenanceForm">
+      <div class="modal-heading">
+        <div><span class="eyebrow">Maintenance</span><h2>Add service record</h2></div>
+        <button class="icon-button" type="button" data-close-modal><span data-icon="close"></span></button>
+      </div>
+      <label><span>Vehicle</span><select name="vehicleId" required></select></label>
+      <div class="form-grid">
+        <label><span>Service type</span>
+          <select name="serviceType" required>
+            <option>Oil Change</option>
+            <option>Tire Rotation</option>
+            <option>Brake Service</option>
+            <option>Inspection</option>
+            <option>Battery</option>
+            <option>Transmission</option>
+            <option>Repair</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label><span>Date</span><input name="date" type="date" required></label>
+        <label><span>Mileage</span><input name="mileage" type="number" min="0" required></label>
+        <label><span>Cost</span><input name="cost" type="number" min="0" step="0.01" value="0"></label>
+      </div>
+      <label><span>Shop</span><input name="shop" placeholder="Optional"></label>
+      <label><span>Notes</span><textarea name="notes" rows="3" placeholder="Parts, work performed, warranty details..."></textarea></label>
+      <div class="modal-actions">
+        <button class="secondary-button" type="button" data-close-modal>Cancel</button>
+        <button class="primary-button" type="submit">Save service</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="quickAddModal">
+    <div class="modal-card compact-card">
+      <div class="modal-heading">
+        <div><span class="eyebrow">Quick add</span><h2>What are you logging?</h2></div>
+        <button class="icon-button" type="button" data-close-modal><span data-icon="close"></span></button>
+      </div>
+      <div class="quick-grid">
+        <button class="quick-action" data-open-modal="mileageModal"><span data-icon="odometer"></span><strong>Mileage</strong></button>
+        <button class="quick-action" data-open-modal="fuelModal"><span data-icon="fuel"></span><strong>Fuel</strong></button>
+        <button class="quick-action" data-open-modal="maintenanceModal"><span data-icon="wrench"></span><strong>Service</strong></button>
+        <button class="quick-action" data-open-modal="vehicleModal"><span data-icon="car"></span><strong>Vehicle</strong></button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
