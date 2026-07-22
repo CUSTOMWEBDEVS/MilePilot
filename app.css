@@ -392,3 +392,15 @@ td { font-size: .86rem; }
   color: var(--muted-text, #8f9299);
   font-size: 0.75rem;
 }
+
+/* Oil-life update */
+.oil-life-block { display: grid; gap: 12px; margin-top: 18px; }
+.oil-life-count { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.oil-life-count strong { font-size: 2rem; line-height: 1; letter-spacing: -.04em; }
+.oil-life-count span { color: var(--muted); font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; }
+.oil-life-track span { transition: width .35s ease; }
+.oil-reset-button { width: 100%; margin-top: 16px; min-height: 40px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-size: .78rem; }
+.oil-reset-button:hover { border-color: var(--accent); color: var(--accent); }
+.oil-reset-button:disabled { opacity: .55; cursor: wait; }
+.oil-reset-button svg { width: 15px; height: 15px; }
+.field-help { color: var(--muted); font-size: .7rem; margin-top: 5px; display: block; }

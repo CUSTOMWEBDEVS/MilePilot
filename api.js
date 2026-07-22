@@ -88,6 +88,7 @@ export const api = {
   addMileage: record => request("addMileage", { method: "POST", body: record }),
   addFuel: record => request("addFuel", { method: "POST", body: record }),
   addMaintenance: record => request("addMaintenance", { method: "POST", body: record }),
+  resetOil: record => request("resetOil", { method: "POST", body: record }),
   nearbyByCoordinates: (lat, lng) => request("nearbyShops", { params: { lat, lng } }),
   nearbyByZip: zip => request("nearbyShops", { params: { zip } })
 };
@@ -147,7 +148,7 @@ async function demoRequest(action, { body, params }) {
   if (action === "bootstrap") return { success: true, data };
 
   if (action === "createVehicle") {
-    const vehicle = { ...body, id: uid("veh"), archived: false, lastOilMileage: Number(body.currentMileage), createdAt: now, updatedAt: now };
+    const vehicle = { ...body, id: uid("veh"), archived: false, lastOilMileage: body.lastOilMileage === undefined ? Number(body.currentMileage) : Number(body.lastOilMileage), createdAt: now, updatedAt: now };
     data.vehicles.push(vehicle);
     writeDemoData(data);
     return { success: true, data: vehicle };
@@ -201,6 +202,22 @@ async function demoRequest(action, { body, params }) {
     if (String(body.serviceType).toLowerCase() === "oil change") vehicle.lastOilMileage = Number(body.mileage);
     writeDemoData(data);
     return { success: true, data: record };
+  }
+
+  if (action === "resetOil") {
+    const vehicle = data.vehicles.find(item => item.id === body.vehicleId);
+    if (!vehicle) throw new Error("Vehicle not found.");
+    const mileage = Number(body.mileage ?? vehicle.currentMileage);
+    vehicle.currentMileage = Math.max(Number(vehicle.currentMileage), mileage);
+    vehicle.lastOilMileage = mileage;
+    vehicle.updatedAt = now;
+    const record = {
+      id: uid("maint"), vehicleId: body.vehicleId, serviceType: "Oil Change",
+      date: body.date, mileage, cost: 0, shop: "", notes: body.notes || "Oil life reset", createdAt: now
+    };
+    data.maintenanceLogs.push(record);
+    writeDemoData(data);
+    return { success: true, data: { vehicle, maintenance: record } };
   }
 
   if (action === "nearbyShops") {

@@ -140,6 +140,7 @@ async function handleVehicleSubmit(event) {
     nickname: raw.nickname.trim(),
     color: raw.color.trim(),
     currentMileage: Number(raw.currentMileage),
+    lastOilMileage: raw.lastOilMileage === "" ? undefined : Number(raw.lastOilMileage),
     oilInterval: Number(raw.oilInterval),
     warningThreshold: Number(raw.warningThreshold)
   };
@@ -243,11 +244,12 @@ function oilStatus(vehicle) {
   const due = last + interval;
   const remaining = due - current;
   const consumed = Math.max(0, current - last);
-  const percent = Math.min(100, Math.max(0, (consumed / interval) * 100));
+  const percentUsed = Math.min(100, Math.max(0, (consumed / interval) * 100));
+  const percentRemaining = Math.min(100, Math.max(0, 100 - percentUsed));
   let level = "good";
   if (remaining <= 0) level = "danger";
   else if (remaining <= warning) level = "warning";
-  return { current, last, interval, warning, due, remaining, percent, level };
+  return { current, last, interval, warning, due, remaining, percentUsed, percentRemaining, level };
 }
 
 function renderStats() {
@@ -321,25 +323,54 @@ function vehicleCard(vehicle) {
         <strong>${formatNumber(vehicle.currentMileage)}</strong>
         <span>current miles</span>
       </div>
-      <div class="service-progress">
-        <header>
-          <span>Oil service</span>
-          <span>${remainingText}</span>
-        </header>
-        <div class="progress-track"><span class="${status.level}" style="width:${status.percent}%"></span></div>
+      <div class="oil-life-block">
+        <div class="oil-life-count">
+          <strong>${Math.round(status.percentRemaining)}%</strong>
+          <span>oil life remaining</span>
+        </div>
+        <div class="service-progress">
+          <header>
+            <span>Next oil change at ${formatNumber(status.due)} mi</span>
+            <span>${remainingText}</span>
+          </header>
+          <div class="progress-track oil-life-track"><span class="${status.level}" style="width:${status.percentRemaining}%"></span></div>
+        </div>
       </div>
+      ${archived ? "" : `<button class="oil-reset-button" data-reset-oil="${vehicle.id}"><span data-icon="sync"></span> Oil changed — reset to 100%</button>`}
     </article>
   `;
 }
 
 function bindVehicleActions(root) {
   mountIcons(root);
-  $$("[data-edit-vehicle]", root).forEach(button => button.addEventListener("click", () => editVehicle(button.dataset.editVehicle)));
-  $$("[data-archive-vehicle]", root).forEach(button => button.addEventListener("click", async () => {
+  $$('[data-edit-vehicle]', root).forEach(button => button.addEventListener("click", () => editVehicle(button.dataset.editVehicle)));
+  $$('[data-archive-vehicle]', root).forEach(button => button.addEventListener("click", async () => {
     const archived = button.dataset.archived === "true";
     await api.archiveVehicle(button.dataset.archiveVehicle, !archived);
     await refreshData();
     toast(archived ? "Vehicle restored." : "Vehicle archived.", "success");
+  }));
+  $$('[data-reset-oil]', root).forEach(button => button.addEventListener("click", async () => {
+    const vehicle = getVehicle(button.dataset.resetOil);
+    if (!vehicle) return;
+    const label = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
+    if (!confirm(`Reset oil life for ${label} at ${formatNumber(vehicle.currentMileage)} miles? This will also add an Oil Change maintenance record.`)) return;
+    button.disabled = true;
+    try {
+      const result = await api.resetOil({
+        vehicleId: vehicle.id,
+        mileage: Number(vehicle.currentMileage),
+        date: today(),
+        notes: "Oil life reset from dashboard"
+      });
+      await refreshData();
+      await updateConnectionStatus();
+      toast(result.queued ? "Oil reset queued for sync." : "Oil life reset to 100%.", "success");
+    } catch (error) {
+      toast(error.message || "Unable to reset oil life.", "error");
+    } finally {
+      button.disabled = false;
+    }
   }));
 }
 

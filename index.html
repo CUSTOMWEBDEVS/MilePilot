@@ -252,7 +252,7 @@
           <div>
             <span class="eyebrow">Local service</span>
             <h1>Nearby shops</h1>
-            <p>Find highly rated service shops within 25 miles and rank them by rating and distance.</p>
+            <p>Find nearby oil-change and automotive service shops within 25 miles using free OpenStreetMap listings.</p>
           </div>
         </div>
 
@@ -322,6 +322,11 @@
         <label>
           <span>Oil interval</span>
           <input name="oilInterval" type="number" min="1000" step="100" value="5000" required>
+        </label>
+        <label>
+          <span>Mileage at last oil change</span>
+          <input name="lastOilMileage" type="number" min="0" step="1" placeholder="Defaults to current mileage">
+          <small class="field-help">Leave blank when the oil was just changed.</small>
         </label>
         <label>
           <span>Warning threshold</span>
