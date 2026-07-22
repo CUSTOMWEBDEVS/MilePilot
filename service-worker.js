@@ -1,4 +1,4 @@
-const CACHE_NAME = "milepilot-v4-oil-life";
+const CACHE_NAME = "milepilot-v5-oil-prediction-debug";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -404,3 +404,6 @@ td { font-size: .86rem; }
 .oil-reset-button:disabled { opacity: .55; cursor: wait; }
 .oil-reset-button svg { width: 15px; height: 15px; }
 .field-help { color: var(--muted); font-size: .7rem; margin-top: 5px; display: block; }
+
+.shop-debug { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: .78rem; line-height: 1.5; white-space: pre-wrap; }
+.oil-prediction-note { display:block; margin-top:8px; color:var(--muted); font-size:.72rem; }

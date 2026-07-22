@@ -32,11 +32,18 @@ async function request(action, { method = "GET", params = {}, body = null, queue
       redirect: "follow"
     });
 
-    if (!response.ok) throw new Error(`Request failed with ${response.status}`);
-    const payload = await response.json();
+    const responseText = await response.text();
+    if (!response.ok) throw new Error(`Request failed with ${response.status}: ${responseText.slice(0, 240)}`);
+    let payload;
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      throw new Error(`Backend returned non-JSON data: ${responseText.slice(0, 240)}`);
+    }
     if (!payload.success) throw new Error(payload.error || "Unknown API error");
     return payload;
   } catch (error) {
+    console.error(`MilePilot API error [${action}]`, error);
     if (method !== "GET" && queueWhenOffline) {
       const queued = { id: uid("queue"), action, method, params, body, createdAt: Date.now() };
       await queueRequest(queued);

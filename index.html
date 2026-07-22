@@ -273,6 +273,7 @@
             </button>
           </div>
         </section>
+        <div id="shopDebug" class="shop-debug" hidden></div>
         <div id="shopResults" class="shop-grid"></div>
       </section>
     </main>
@@ -325,8 +326,13 @@
         </label>
         <label>
           <span>Mileage at last oil change</span>
-          <input name="lastOilMileage" type="number" min="0" step="1" placeholder="Defaults to current mileage">
-          <small class="field-help">Leave blank when the oil was just changed.</small>
+          <input name="lastOilMileage" type="number" min="0" step="1" placeholder="Example: 140045">
+          <small class="field-help">This may be lower than current mileage. It is the odometer reading when the oil was changed.</small>
+        </label>
+        <label>
+          <span>Current oil-life reading (%)</span>
+          <input name="currentOilLifePercent" type="number" min="0" max="100" step="1" placeholder="Optional, e.g. 64">
+          <small class="field-help">Optional vehicle/dashboard reading. This improves the predicted due mileage.</small>
         </label>
         <label>
           <span>Warning threshold</span>

@@ -141,6 +141,8 @@ async function handleVehicleSubmit(event) {
     color: raw.color.trim(),
     currentMileage: Number(raw.currentMileage),
     lastOilMileage: raw.lastOilMileage === "" ? undefined : Number(raw.lastOilMileage),
+    currentOilLifePercent: raw.currentOilLifePercent === "" ? undefined : Number(raw.currentOilLifePercent),
+    oilLifeReadingMileage: raw.currentOilLifePercent === "" ? undefined : Number(raw.currentMileage),
     oilInterval: Number(raw.oilInterval),
     warningThreshold: Number(raw.warningThreshold)
   };
@@ -238,18 +240,38 @@ function getVehicle(id) {
 
 function oilStatus(vehicle) {
   const current = Number(vehicle.currentMileage || 0);
-  const last = Number(vehicle.lastOilMileage || current);
-  const interval = Number(vehicle.oilInterval || 5000);
-  const warning = Number(vehicle.warningThreshold || 500);
-  const due = last + interval;
+  const hasStoredLast = vehicle.lastOilMileage !== undefined && vehicle.lastOilMileage !== null && vehicle.lastOilMileage !== "";
+  const last = hasStoredLast ? Number(vehicle.lastOilMileage) : current;
+  const interval = Math.max(1, Number(vehicle.oilInterval || 5000));
+  const warning = Math.max(0, Number(vehicle.warningThreshold || 500));
+  const milesSinceChange = Math.max(0, current - last);
+
+  const sensorPercentRaw = Number(vehicle.currentOilLifePercent);
+  const readingMileageRaw = Number(vehicle.oilLifeReadingMileage);
+  const hasSensorReading = Number.isFinite(sensorPercentRaw) && sensorPercentRaw >= 0 && sensorPercentRaw <= 100;
+  const readingMileage = Number.isFinite(readingMileageRaw) && readingMileageRaw >= last ? readingMileageRaw : current;
+
+  let due;
+  let predictionSource = "interval";
+  if (hasSensorReading && sensorPercentRaw < 100) {
+    const drivenAtReading = Math.max(0, readingMileage - last);
+    const usedFraction = Math.max(0.01, (100 - sensorPercentRaw) / 100);
+    const sensorEstimatedLife = drivenAtReading > 0 ? drivenAtReading / usedFraction : interval;
+    const boundedLife = Math.min(interval * 2, Math.max(interval * 0.35, sensorEstimatedLife));
+    due = Math.round(last + boundedLife);
+    predictionSource = "oil-life reading";
+  } else {
+    due = Math.round(last + interval);
+  }
+
   const remaining = due - current;
-  const consumed = Math.max(0, current - last);
-  const percentUsed = Math.min(100, Math.max(0, (consumed / interval) * 100));
-  const percentRemaining = Math.min(100, Math.max(0, 100 - percentUsed));
+  const predictedLife = Math.max(1, due - last);
+  const percentRemaining = Math.min(100, Math.max(0, (remaining / predictedLife) * 100));
+  const percentUsed = 100 - percentRemaining;
   let level = "good";
   if (remaining <= 0) level = "danger";
   else if (remaining <= warning) level = "warning";
-  return { current, last, interval, warning, due, remaining, percentUsed, percentRemaining, level };
+  return { current, last, interval, warning, due, remaining, milesSinceChange, percentUsed, percentRemaining, level, predictionSource };
 }
 
 function renderStats() {
@@ -330,10 +352,11 @@ function vehicleCard(vehicle) {
         </div>
         <div class="service-progress">
           <header>
-            <span>Next oil change at ${formatNumber(status.due)} mi</span>
+            <span>Predicted oil change at ${formatNumber(status.due)} mi</span>
             <span>${remainingText}</span>
           </header>
           <div class="progress-track oil-life-track"><span class="${status.level}" style="width:${status.percentRemaining}%"></span></div>
+          <small class="oil-prediction-note">${formatNumber(status.milesSinceChange)} miles since last change · prediction from ${status.predictionSource}</small>
         </div>
       </div>
       ${archived ? "" : `<button class="oil-reset-button" data-reset-oil="${vehicle.id}"><span data-icon="sync"></span> Oil changed — reset to 100%</button>`}
@@ -486,10 +509,19 @@ function setupNearbySearch() {
 }
 
 async function loadShops(loader) {
+  const debug = $("#shopDebug");
+  debug.hidden = true;
+  debug.textContent = "";
   $("#shopResults").innerHTML = `<div class="empty-state">Searching nearby service shops...</div>`;
   try {
     const response = await loader();
-    const shops = response.data || [];
+    console.info("MilePilot nearby shop response", response);
+    const result = response.data || {};
+    const shops = Array.isArray(result) ? result : (result.shops || []);
+    if (!Array.isArray(result) && result.diagnostics) {
+      debug.hidden = false;
+      debug.textContent = `Provider: ${result.diagnostics.provider || "unknown"} · ZIP/GPS resolved: ${result.diagnostics.latitude}, ${result.diagnostics.longitude} · Results: ${shops.length}`;
+    }
     $("#shopResults").innerHTML = shops.length ? shops.map(shop => `
       <article class="shop-card">
         <header>
@@ -512,8 +544,11 @@ async function loadShops(loader) {
       </article>
     `).join("") : emptyState("No shops found within 25 miles.");
   } catch (error) {
-    $("#shopResults").innerHTML = emptyState("Unable to load nearby shops.");
-    toast(error.message, "error");
+    console.error("MilePilot nearby shop search failed", error);
+    debug.hidden = false;
+    debug.textContent = `Shop search error: ${error.message || error}. Open Apps Script → Executions for the server-side details.`;
+    $("#shopResults").innerHTML = emptyState("Unable to load nearby shops. Diagnostic details are shown above.");
+    toast(error.message || "Unable to load nearby shops.", "error");
   }
 }
 
