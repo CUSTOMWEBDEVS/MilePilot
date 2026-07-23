@@ -44,7 +44,8 @@ async function request(action, { method = "GET", params = {}, body = null, queue
     return payload;
   } catch (error) {
     console.error(`MilePilot API error [${action}]`, error);
-    if (method !== "GET" && queueWhenOffline) {
+    const isNetworkFailure = error instanceof TypeError || !navigator.onLine;
+    if (method !== "GET" && queueWhenOffline && isNetworkFailure) {
       const queued = { id: uid("queue"), action, method, params, body, createdAt: Date.now() };
       await queueRequest(queued);
       return { success: true, queued: true, data: body };

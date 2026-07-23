@@ -148,6 +148,19 @@ async function handleVehicleSubmit(event) {
     warningThreshold: Number(raw.warningThreshold)
   };
   const result = await api.saveVehicle(vehicle);
+  if (!result.queued) {
+    const saved = result.data || {};
+    const checks = [
+      ["currentMileage", vehicle.currentMileage],
+      ["lastOilMileage", vehicle.lastOilMileage ?? vehicle.currentMileage],
+      ["oilInterval", vehicle.oilInterval],
+      ["warningThreshold", vehicle.warningThreshold]
+    ];
+    if (vehicle.currentOilLifePercent !== undefined) checks.push(["currentOilLifePercent", vehicle.currentOilLifePercent]);
+    if (vehicle.averageDailyMiles !== undefined) checks.push(["averageDailyMiles", vehicle.averageDailyMiles]);
+    const mismatch = checks.find(([key, expected]) => Number(saved[key]) !== Number(expected));
+    if (mismatch) throw new Error(`Backend verification failed for ${mismatch[0]}. Saved ${saved[mismatch[0]] ?? "blank"}, expected ${mismatch[1]}.`);
+  }
   form.closest("dialog").close();
   form.reset();
   form.elements.oilInterval.value = 5000;
