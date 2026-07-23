@@ -143,6 +143,7 @@ async function handleVehicleSubmit(event) {
     lastOilMileage: raw.lastOilMileage === "" ? undefined : Number(raw.lastOilMileage),
     currentOilLifePercent: raw.currentOilLifePercent === "" ? undefined : Number(raw.currentOilLifePercent),
     oilLifeReadingMileage: raw.currentOilLifePercent === "" ? undefined : Number(raw.currentMileage),
+    averageDailyMiles: raw.averageDailyMiles === "" ? undefined : Number(raw.averageDailyMiles),
     oilInterval: Number(raw.oilInterval),
     warningThreshold: Number(raw.warningThreshold)
   };
@@ -246,7 +247,10 @@ function oilStatus(vehicle) {
   const warning = Math.max(0, Number(vehicle.warningThreshold || 500));
   const milesSinceChange = Math.max(0, current - last);
 
-  const sensorPercentRaw = Number(vehicle.currentOilLifePercent);
+  const rawOilPercent = vehicle.currentOilLifePercent;
+  const sensorPercentRaw = typeof rawOilPercent === "boolean" || rawOilPercent === "" || rawOilPercent === null || rawOilPercent === undefined
+    ? NaN
+    : Number(rawOilPercent);
   const readingMileageRaw = Number(vehicle.oilLifeReadingMileage);
   const hasSensorReading = Number.isFinite(sensorPercentRaw) && sensorPercentRaw >= 0 && sensorPercentRaw <= 100;
   const readingMileage = Number.isFinite(readingMileageRaw) && readingMileageRaw >= last ? readingMileageRaw : current;
@@ -271,7 +275,13 @@ function oilStatus(vehicle) {
   let level = "good";
   if (remaining <= 0) level = "danger";
   else if (remaining <= warning) level = "warning";
-  return { current, last, interval, warning, due, remaining, milesSinceChange, percentUsed, percentRemaining, level, predictionSource };
+  const dailyMiles = Number(vehicle.averageDailyMiles || 0);
+  let predictedDate = null;
+  if (remaining > 0 && Number.isFinite(dailyMiles) && dailyMiles > 0) {
+    predictedDate = new Date();
+    predictedDate.setDate(predictedDate.getDate() + Math.ceil(remaining / dailyMiles));
+  }
+  return { current, last, interval, warning, due, remaining, milesSinceChange, percentUsed, percentRemaining, level, predictionSource, dailyMiles, predictedDate };
 }
 
 function renderStats() {
@@ -356,7 +366,7 @@ function vehicleCard(vehicle) {
             <span>${remainingText}</span>
           </header>
           <div class="progress-track oil-life-track"><span class="${status.level}" style="width:${status.percentRemaining}%"></span></div>
-          <small class="oil-prediction-note">${formatNumber(status.milesSinceChange)} miles since last change · prediction from ${status.predictionSource}</small>
+          <small class="oil-prediction-note">${formatNumber(status.milesSinceChange)} miles since last change · prediction from ${status.predictionSource}${status.predictedDate ? ` · estimated ${status.predictedDate.toLocaleDateString()}` : " · add daily miles for a date"}</small>
         </div>
       </div>
       ${archived ? "" : `<button class="oil-reset-button" data-reset-oil="${vehicle.id}"><span data-icon="sync"></span> Oil changed — reset to 100%</button>`}
@@ -402,7 +412,7 @@ function editVehicle(id) {
   if (!vehicle) return;
   const form = $("#vehicleForm");
   Object.entries(vehicle).forEach(([key, value]) => {
-    if (form.elements[key]) form.elements[key].value = value ?? "";
+    if (form.elements[key]) form.elements[key].value = typeof value === "boolean" ? "" : (value ?? "");
   });
   $("#vehicleModalTitle").textContent = "Edit vehicle";
   openModal("vehicleModal");
@@ -518,6 +528,7 @@ async function loadShops(loader) {
     console.info("MilePilot nearby shop response", response);
     const result = response.data || {};
     const shops = Array.isArray(result) ? result : (result.shops || []);
+    const fallbackSearches = Array.isArray(result.fallbackSearches) ? result.fallbackSearches : [];
     if (!Array.isArray(result) && result.diagnostics) {
       debug.hidden = false;
       debug.textContent = `Provider: ${result.diagnostics.provider || "unknown"} · ZIP/GPS resolved: ${result.diagnostics.latitude}, ${result.diagnostics.longitude} · Results: ${shops.length}`;
@@ -541,6 +552,11 @@ async function loadShops(loader) {
           <a class="button button-primary" href="${escapeHtml(shop.mapsUrl || "#")}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
         </div>
         <small class="shop-source">Listing data from OpenStreetMap contributors</small>
+      </article>
+    `).join("") : fallbackSearches.length ? fallbackSearches.map(item => `
+      <article class="shop-card">
+        <header><div><h3>${escapeHtml(item.name)}</h3><p>The free listing provider did not respond, so use this live map search.</p></div></header>
+        <div class="shop-actions"><a class="button button-primary" href="${escapeHtml(item.mapsUrl)}" target="_blank" rel="noopener noreferrer">Open search in Maps</a></div>
       </article>
     `).join("") : emptyState("No shops found within 25 miles.");
   } catch (error) {

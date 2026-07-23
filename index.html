@@ -335,6 +335,11 @@
           <small class="field-help">Optional vehicle/dashboard reading. This improves the predicted due mileage.</small>
         </label>
         <label>
+          <span>Average miles driven per day</span>
+          <input name="averageDailyMiles" type="number" min="0" step="0.1" placeholder="Example: 35">
+          <small class="field-help">Used only to estimate the calendar date of the next oil change.</small>
+        </label>
+        <label>
           <span>Warning threshold</span>
           <input name="warningThreshold" type="number" min="0" step="50" value="500" required>
         </label>
