@@ -1,10 +1,11 @@
-const CACHE_NAME = "milepilot-v1.4-schema-fix";
+const CACHE_NAME = "milepilot-v2-full-rebuild";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./app.css",
   "./app.js",
   "./api.js",
+  "./config.js",
   "./db.js",
   "./utils.js",
   "./manifest.webmanifest",

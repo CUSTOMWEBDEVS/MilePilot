@@ -1,7 +1,8 @@
 import { queueRequest, getQueuedRequests, removeQueuedRequest, setCache, getCache } from "./db.js";
 import { uid } from "./utils.js";
 
-const API_BASE_URL = "https://script.google.com/macros/s/AKfycbzdO_bD1NzIqfaKLuPb8LuAlYCTTH6fWF7tPG7piUBB_fiHeoz20uolCZzRx0rlX_G8/exec";
+const API_BASE_URL = window.MILEPILOT_CONFIG?.API_URL || "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+const REQUIRED_API_VERSION = window.MILEPILOT_CONFIG?.REQUIRED_API_VERSION || "2.0.0";
 const DEMO_MODE = API_BASE_URL.includes("PASTE_YOUR");
 
 function buildUrl(action, params = {}) {
@@ -83,6 +84,10 @@ export const api = {
   async bootstrap() {
     try {
       const response = await request("bootstrap");
+      const actualVersion = String(response.data?.meta?.apiVersion || "");
+      if (actualVersion !== REQUIRED_API_VERSION) {
+        throw new Error(`Backend version mismatch. Frontend requires ${REQUIRED_API_VERSION}, but the deployed Apps Script returned ${actualVersion || "no version"}. Deploy Code.gs v${REQUIRED_API_VERSION} as a new version.`);
+      }
       await setCache("bootstrap", response.data);
       return response.data;
     } catch (error) {
