@@ -1,4 +1,4 @@
-const CACHE_NAME = "milepilot-v5-repair";
+const CACHE_NAME = "milepilot-v1.4-schema-fix";
 const APP_SHELL = [
   "./",
   "./index.html",

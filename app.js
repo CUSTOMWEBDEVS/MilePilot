@@ -294,6 +294,7 @@ function renderStats() {
   $("#statVehicles").textContent = formatNumber(vehicles.length);
   $("#statMiles").textContent = formatNumber(totalMiles);
   $("#statMpg").textContent = avgMpg ? avgMpg.toFixed(1) : "--";
+  $("#statMpg").title = avgMpg ? "Average of calculated full-tank MPG records" : "Log at least two full-tank fuel stops for the same vehicle to calculate MPG";
   $("#statSpend").textContent = formatCurrency(spend);
 
   const healthScores = vehicles.map(vehicle => {
@@ -502,70 +503,43 @@ function renderMaintenanceTable() {
 }
 
 function setupNearbySearch() {
-  $("#zipSearchButton").addEventListener("click", async () => {
+  $("#zipSearchButton").addEventListener("click", () => {
     const zip = $("#zipInput").value.trim();
     if (!/^\d{5}$/.test(zip)) return toast("Enter a valid five-digit ZIP code.", "error");
-    await loadShops(() => api.nearbyByZip(zip));
+    renderMapSearches(zip, "ZIP " + zip);
   });
 
   $("#gpsSearchButton").addEventListener("click", () => {
     if (!navigator.geolocation) return toast("GPS is not supported by this browser.", "error");
     navigator.geolocation.getCurrentPosition(
-      position => loadShops(() => api.nearbyByCoordinates(position.coords.latitude, position.coords.longitude)),
-      () => toast("Unable to access your location.", "error"),
+      position => {
+        const location = `${position.coords.latitude},${position.coords.longitude}`;
+        renderMapSearches(location, "your current location");
+      },
+      error => toast(`Unable to access your location: ${error.message}`, "error"),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   });
 }
 
-async function loadShops(loader) {
+function renderMapSearches(location, label) {
   const debug = $("#shopDebug");
-  debug.hidden = true;
-  debug.textContent = "";
-  $("#shopResults").innerHTML = `<div class="empty-state">Searching nearby service shops...</div>`;
-  try {
-    const response = await loader();
-    console.info("MilePilot nearby shop response", response);
-    const result = response.data || {};
-    const shops = Array.isArray(result) ? result : (result.shops || []);
-    const fallbackSearches = Array.isArray(result.fallbackSearches) ? result.fallbackSearches : [];
-    if (!Array.isArray(result) && result.diagnostics) {
-      debug.hidden = false;
-      debug.textContent = `Provider: ${result.diagnostics.provider || "unknown"} · ZIP/GPS resolved: ${result.diagnostics.latitude}, ${result.diagnostics.longitude} · Results: ${shops.length}`;
-    }
-    $("#shopResults").innerHTML = shops.length ? shops.map(shop => `
+  debug.hidden = false;
+  debug.textContent = `Live map searches centered on ${label}. No paid API or listing provider is required.`;
+  const searches = [
+    ["Oil change shops", "oil change"],
+    ["Valvoline Instant Oil Change", "Valvoline Instant Oil Change"],
+    ["Auto repair shops", "auto repair"],
+    ["Tire and service centers", "tire service center"]
+  ];
+  $("#shopResults").innerHTML = searches.map(([name, query]) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query + " near " + location)}`;
+    return `
       <article class="shop-card">
-        <header>
-          <div>
-            <h3>${escapeHtml(shop.name)}</h3>
-            <p>${escapeHtml(shop.address || "")}</p>
-          </div>
-          <span class="score-badge">${Math.round(Number(shop.score || 0))}</span>
-        </header>
-        <div class="shop-meta">
-          <span>${Number(shop.distanceMiles || 0).toFixed(1)} miles away</span>
-          <span>${escapeHtml(shop.openingHours || "Hours not listed")}</span>
-        </div>
-        <div class="shop-actions">
-          ${shop.phone ? `<a class="button button-secondary" href="tel:${escapeHtml(shop.phone)}">Call</a>` : ""}
-          ${shop.website ? `<a class="button button-secondary" href="${escapeHtml(shop.website)}" target="_blank" rel="noopener noreferrer">Website</a>` : ""}
-          <a class="button button-primary" href="${escapeHtml(shop.mapsUrl || "#")}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
-        </div>
-        <small class="shop-source">Listing data from OpenStreetMap contributors</small>
-      </article>
-    `).join("") : fallbackSearches.length ? fallbackSearches.map(item => `
-      <article class="shop-card">
-        <header><div><h3>${escapeHtml(item.name)}</h3><p>The free listing provider did not respond, so use this live map search.</p></div></header>
-        <div class="shop-actions"><a class="button button-primary" href="${escapeHtml(item.mapsUrl)}" target="_blank" rel="noopener noreferrer">Open search in Maps</a></div>
-      </article>
-    `).join("") : emptyState("No shops found within 25 miles.");
-  } catch (error) {
-    console.error("MilePilot nearby shop search failed", error);
-    debug.hidden = false;
-    debug.textContent = `Shop search error: ${error.message || error}. Open Apps Script → Executions for the server-side details.`;
-    $("#shopResults").innerHTML = emptyState("Unable to load nearby shops. Diagnostic details are shown above.");
-    toast(error.message || "Unable to load nearby shops.", "error");
-  }
+        <header><div><h3>${escapeHtml(name)}</h3><p>Open live nearby results, ratings, hours, directions, and phone numbers in Google Maps.</p></div></header>
+        <div class="shop-actions"><a class="button button-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Search near me</a></div>
+      </article>`;
+  }).join("");
 }
 
 function setupConnectionEvents() {
